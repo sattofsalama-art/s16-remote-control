@@ -1,0 +1,37 @@
+name: Build Receiver APK
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android-app/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build APK
+        run: cd android-app && gradle --no-daemon assembleDebug
+      - name: Publish APK to GitHub releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk S16-Phone-Remote.apk
+          gh release create "phone-remote-${{ github.run_number }}" S16-Phone-Remote.apk --title "S16 Phone Remote build ${{ github.run_number }}" --notes "Install this APK on the S16 Android receiver, approve screen capture and Accessibility permissions, and scan the QR code with your iPhone. Do not install on iPhone."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: S16-Phone-Remote
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
