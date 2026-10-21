@@ -78,6 +78,12 @@ font-size:12px;max-height:210px;overflow:auto}.wide{width:100%}.good{color:#81f6
 <input dir="ltr" id="pkg" placeholder="com.android.settings">
 <button class="wide" onclick="callAction('launch',document.getElementById('pkg').value)">تشغيل التطبيق المحدد</button>
 <div id="pkgs"></div></section>
+<section><strong>صلاحيات Root</strong>
+<p id="rootStatus">لم يتم الفحص بعد</p>
+<button class="sub wide" onclick="checkRoot()">🔍 فحص Root الآن</button>
+<p><small>لتجربة تفعيل ADB Root من Termux على الرسيفر فقط: <code dir="ltr">bash root-manager.sh enable</code></small></p>
+<p><small>للعودة للوضع العادي: <code dir="ltr">bash root-manager.sh disable</code></small></p>
+</section>
 <section><strong>آخر نتيجة</strong><pre id="result">جاهز</pre></section>
 <script>
 async function api(url,body){
@@ -95,6 +101,14 @@ async function status(){
  document.getElementById('status').innerHTML=r.connected?
  '<span class="good">● ADB متصل</span>':
  '<span class="bad">● ADB غير متصل. فعّل ADB over Network على الرسيفر إذا كان متاحاً</span>';
+ document.getElementById('result').textContent=r.message||'';
+}
+async function checkRoot(){
+ let r=await api('/api/root-status');
+ document.getElementById('rootStatus').textContent=
+   r.root===true?'✅ ADB Root فعّال (uid=0)':
+   r.root===false?'⛔ ADB يعمل بدون Root':
+   'تعذّر فحص Root: '+(r.message||'ADB غير متصل');
  document.getElementById('result').textContent=r.message||'';
 }
 async function callAction(action,value){
@@ -163,6 +177,17 @@ class Handler(BaseHTTPRequestHandler):
             connected = any(x.startswith(SERIAL + "\tdevice") for x in output.splitlines())
             self.reply({"connected": connected,
                         "message": "ADB connected" if connected else output})
+        elif path.path == "/api/root-status":
+            identity, code = adb("shell", "id")
+            if code:
+                return self.reply({"root": None, "message": identity or "ADB is not connected"}, 409)
+            build, _ = adb("shell", "getprop", "ro.build.type")
+            debuggable, _ = adb("shell", "getprop", "ro.debuggable")
+            self.reply({"root": "uid=0(root)" in identity,
+                        "identity": identity, "build": build,
+                        "debuggable": debuggable,
+                        "message": "ADB identity: " + identity +
+                                   " | build: " + build + " | debuggable: " + debuggable})
         elif path.path == "/api/packages":
             kind = parse_qs(path.query).get("kind", ["user"])[0]
             if kind not in ("system", "user"):
