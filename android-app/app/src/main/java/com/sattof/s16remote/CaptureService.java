@@ -60,7 +60,7 @@ public class CaptureService extends Service {
                 MediaProjectionManager pm = (MediaProjectionManager)
                     getSystemService(MEDIA_PROJECTION_SERVICE);
                 projection=pm.getMediaProjection(intent.getIntExtra("code", Activity.RESULT_CANCELED),
-                    intent.getParcelableExtra("data"));
+                    (Intent) intent.getParcelableExtra("data"));
                 if (projection == null) throw new IOException("Projection denied");
                 projection.registerCallback(new MediaProjection.Callback() {
                     @Override public void onStop() { stopSelf(); }
@@ -120,8 +120,10 @@ public class CaptureService extends Service {
         for (String part: src.split("&")) {
             int index=part.indexOf('=');
             if (index<0) continue;
-            String k=URLDecoder.decode(part.substring(0,index),"UTF-8");
-            if (k.equals(key)) return URLDecoder.decode(part.substring(index+1),"UTF-8");
+            try {
+                String k=URLDecoder.decode(part.substring(0,index),"UTF-8");
+                if (k.equals(key)) return URLDecoder.decode(part.substring(index+1),"UTF-8");
+            } catch(Exception ignored) {return "";} 
         }
         return "";
     }
