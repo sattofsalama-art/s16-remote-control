@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>S16 · التحكم المباشر</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:#0f1728;color:#eff6ff}
+*{box-sizing:border-box}
+body{max-width:850px;margin:0 auto;padding:14px 12px 60px}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+h1{font-size:21px;margin:4px 0}small{color:#bac8dc}h2{font-size:18px;margin:0 0 10px}
+section{background:#1c2940;border:1px solid #394f6a;border-radius:18px;margin:12px 0;padding:14px}
+button{background:#416fca;border:0;color:#fff;border-radius:11px;padding:14px;font-size:16px;font-weight:650;min-height:50px}
+button:active{background:#7394d7}
+.secondary{background:#44536d}.inline{display:flex;gap:8px;flex-wrap:wrap}.inline button{flex:1}
+#screenWrap{background:#080c16;position:relative;border-radius:10px;overflow:hidden;margin:8px auto;min-height:120px}
+#screen{display:block;width:100%;height:auto;touch-action:none;user-select:none;-webkit-user-drag:none}
+#placeholder{position:absolute;top:0;left:0;right:0;text-align:center;padding:20px;pointer-events:none}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.grid button{height:66px}
+select,input{width:100%;border:1px solid #516482;background:#111e33;color:white;border-radius:10px;font-size:15px;padding:12px;max-width:100%}
+#msg{white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;font-size:13px}
+.pill{border-radius:25px;background:#30425c;padding:7px 10px;font-size:12px}
+</style></head>
+<body>
+<header><div><h1>📺 S16 · التحكم المباشر</h1>
+<small>عرض الشاشة واللمس والسحب من الآيفون — شبكة المنزل فقط</small></div>
+<span class="pill" id="status">الاتصال جارٍ…</span></header>
+<section>
+<h2>شاشة الرسيفر</h2>
+<div id="screenWrap">
+<img id="screen" alt="شاشة الرسيفر" draggable="false">
+<div id="placeholder">جارٍ تحميل الشاشة…</div>
+</div>
+<small>اضغط على أي مكان داخل الشاشة للتحكم، واسحب بإصبعك للتمرير. قد تظهر بعض تطبيقات الفيديو بشاشة سوداء بسبب حماية المحتوى.</small>
+<div class="inline" style="margin-top:10px">
+<button onclick="refresh()" class="secondary">⟳ تحديث الشاشة</button>
+<button onclick="command('settings')">⚙️ الإعدادات</button>
+</div>
+</section>
+<section>
+<h2>أزرار الريموت</h2>
+<div class="grid">
+<button onclick="command('home')">🏠 الرئيسية</button>
+<button onclick="command('tap',{x:cx,y:cy})">▲ اضغط الشاشة</button>
+<button onclick="command('recents')">التطبيقات الحديثة</button>
+<button onclick="command('back')">↩ رجوع</button>
+<button onclick="command('notifications')">الإشعارات</button>
+<button onclick="command('settings')">الإعدادات</button>
+<button onclick="command('voldown')">🔉 −</button>
+<button onclick="command('volup')">🔊 +</button>
+<button onclick="refresh()" class="secondary">⟳ تحديث</button>
+</div>
+</section>
+<section>
+<h2>فتح التطبيقات</h2>
+<div class="inline"><button onclick="loadApps()" class="secondary">إظهار التطبيقات</button></div>
+<select id="apps"><option value="">اختر تطبيقاً بعد تحميل القائمة</option></select>
+<button style="width:100%;margin-top:9px" onclick="command('launch',{package:document.getElementById('apps').value})">تشغيل التطبيق المحدد</button>
+</section>
+<section><h2>الكتابة في خانة محددة على الرسيفر (اختياري)</h2>
+<input id="txt" placeholder="النص المطلوب"><button onclick="command('text',{text:document.getElementById('txt').value})" style="margin-top:8px;width:100%">إرسال النص</button>
+<p><small>اختر حقل الكتابة في شاشة الرسيفر أولاً، ثم أرسل النص.</small></p></section>
+<section><h2>حالة الجهاز</h2><div id="msg">جاهز</div>
+<p><small>هذا التطبيق يسمح بالتحكم بواجهة أندرويد بإذن منك، لكنه لا يفتح Root ولا يستطيع تعديل Firmware أو ملفات النظام المحمية.</small></p></section>
+<script>
+const img=document.getElementById('screen'),place=document.getElementById('placeholder'),message=document.getElementById('msg');
+let down=null,cx=0,cy=0,timer=null;
+function refresh(){clearTimeout(timer);img.src='/api/screen?t='+Date.now()}
+img.addEventListener('load',()=>{place.style.display='none';timer=setTimeout(refresh,1600)});
+img.addEventListener('error',()=>{place.style.display='block';place.textContent='الشاشة غير متاحة مؤقتاً';timer=setTimeout(refresh,2600)});
+function point(e){let r=img.getBoundingClientRect(),w=img.naturalWidth||1280,h=img.naturalHeight||720;
+return {x:Math.max(0,Math.min(w-1,Math.round((e.clientX-r.left)*w/r.width))),
+y:Math.max(0,Math.min(h-1,Math.round((e.clientY-r.top)*h/r.height)))}}
+img.addEventListener('pointerdown',e=>{e.preventDefault();down=point(e);cx=down.x;cy=down.y;img.setPointerCapture(e.pointerId)});
+img.addEventListener('pointerup',e=>{
+ e.preventDefault();if(!down)return;
+ let end=point(e),first=down;down=null;
+ let dist=Math.abs(end.x-first.x)+Math.abs(end.y-first.y);
+ command(dist>22?'swipe':'tap',{x:first.x,y:first.y,x2:end.x,y2:end.y},false)
+});
+img.addEventListener('contextmenu',e=>e.preventDefault());
+async function command(type,fields={},log=true){
+ try{
+ const res=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+ body:new URLSearchParams({type,...fields})});
+ const obj=await res.json();
+ if(log || !obj.ok)message.textContent=obj.message||JSON.stringify(obj);
+ if(!obj.ok)document.getElementById('status').textContent='تأكد من صلاحية Accessibility';
+ }catch(err){message.textContent='خطأ اتصال: '+err}
+}
+async function loadApps(){
+ try{
+ const response=await fetch('/api/apps'),data=await response.json();
+ const select=document.getElementById('apps');select.innerHTML='';
+ for (const name of data.apps||[]){let o=document.createElement('option');o.value=name;o.textContent=name;select.appendChild(o)}
+ message.textContent='تم تحميل '+(data.apps||[]).length+' تطبيق';
+ }catch(e){message.textContent='تعذّر تحميل التطبيقات '+e}
+}
+async function check(){
+ try{
+ let res=await fetch('/api/status'),data=await res.json();
+ document.getElementById('status').textContent=data.touch?'🟢 التحكم مفعّل':'🟠 فعّل Accessibility على الرسيفر';
+ }catch(e){document.getElementById('status').textContent='⚠️ الاتصال غير متاح'}
+}
+check();setInterval(check,7000);refresh();
+</script>
+</body></html>
